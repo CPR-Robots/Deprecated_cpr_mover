@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: Oct. 26th 2013
-// Last change: December 1st, 2014
+// Last change: December 2nd, 2014
 
 
 #ifndef cpr_mover_H
@@ -84,6 +84,10 @@ namespace cpr_robots{
 class cpr_mover{
 
 	private:
+
+		bool flagMover4;				// which robot to use?
+		bool flagMover6;
+
 
 		bool flag_stop_requested;
 

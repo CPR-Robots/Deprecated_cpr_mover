@@ -33,11 +33,11 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: December 1st, 2014
+// Last change: December 2nd, 2014
 
 /*
 	Functionality:
-	* Establishes a main loop to control the robot arm
+	* Establishes a main loop to control the robot arm Mover4 or Mover6
 	* Connects to a Mover robot using the PCAN adapter
 	* Allows to move the joints with the cpr_rviz_plugin
 	* Accepts joint_trajectory_actions from e.g. moveit
@@ -45,9 +45,8 @@
 
 	ToDo:
 	* Include the CPRRS232 USB-CAN-adapter
-	* Choose between Mover4 and Mover6 via startup parameter
-	* Set Override
 	* improve structure and quality, debug
+	* actuate the gripper
 */
 
 
@@ -130,12 +129,14 @@ int main(int argc, char** argv)
 
 
 	//Start the ActionServer for JointTrajectoryActions from MoveIT
-	// tobedone: ActionServer sauber in cpr_mover4 integrieren	
 	ros::NodeHandle n2;
-	//Server server(n2, "send_path", boost::bind(&execute, _1, &server), false);
+
+
 	Server server(n2, "cpr_mover/follow_joint_trajectory", boost::bind(&execute, _1, &server), false);
   	ROS_INFO("ActionServer: Starting");
   	server.start();	
+
+
 
 	// Start the robot
 	cpr_robots::cpr_mover robot;
@@ -156,7 +157,31 @@ namespace cpr_robots{
 	//*************************************************************************************
 	cpr_mover::cpr_mover(){
 
-	
+		flagMover4 = true;      // default choice
+		flagMover6 = false;
+
+		// whicht robot to operate?
+		// should be defined in the launch file / parameter server
+		//<param name="robot_type" value="mover4"/>
+		std::string global_name, relative_name, default_param;
+		if (n.getParam("/robot_type", global_name)){
+			ROS_INFO(global_name.c_str());
+
+			if(global_name == "mover4"){
+				flagMover4 = true;
+				flagMover6 = false;
+			}else if(global_name == "mover6"){
+				flagMover4 = false;
+				flagMover6 = true;
+			}else{
+				flagMover4 = true;
+				flagMover6 = false;
+			}
+
+		}else{
+			ROS_INFO("no robot name found");
+		}
+
 	}
 
 
@@ -168,15 +193,24 @@ namespace cpr_robots{
 	//*************************************************************************************
 	void cpr_mover::init(){
 		ROS_INFO("...initing...");
+
+
+
 		flag_stop_requested = false;
 
-		nrOfJoints = 4;
+		if(flagMover6){
+			nrOfJoints = 6;
+		}else{
+			nrOfJoints = 4;
+		}
 		kin.nrOfJoints = nrOfJoints;
 
-		setPointState.j[0] =   0.0;
-		setPointState.j[1] = -10.0;
-		setPointState.j[2] =  90.0;
-		setPointState.j[3] = -40.0;
+		setPointState.j[0] =   0.0;			// values are initialized with 6 field to be usable for Mover4 and Mover6
+		setPointState.j[1] = -20.0;
+		setPointState.j[2] =  20.0;
+		setPointState.j[3] =  20.0;
+		setPointState.j[4] =  30.0;
+		setPointState.j[5] =   0.0;
 
 		jointMaxVelocity[0] = 20.0;
 		jointMaxVelocity[1] = 20.0;
@@ -185,21 +219,6 @@ namespace cpr_robots{
 		jointMaxVelocity[4] = 20.0;
 		jointMaxVelocity[5] = 20.0;
 
-/*
-		// the next lines are inserted to test replay of points
-		targetState.j[0] = 30.0;
-		targetState.j[1] = 30.0;
-		targetState.j[2] = 30.0;
-		targetState.j[3] = 30.0;
-		targetState.duration = 3.0;
-		targetState.j[0] = 60.0;
-		targetPointList.push_back(targetState);		// insert 2 test points
-		targetState.duration = 6.0;
-		targetState.j[0] = 20.0;
-		targetPointList.push_back(targetState);
-		targetState.j[0] = 30.0;
-		printTargetPointList();						// short output
-*/
 
 		// when starting up (or when reading the HW joint values) the target position has to be aligned with the setPoint position
 		for(int i=0; i<nrOfJoints; i++)
@@ -210,8 +229,8 @@ namespace cpr_robots{
 
 
 		msgJointsCurrent.header.stamp = ros::Time::now();
-		msgJointsCurrent.name.resize(4);
-		msgJointsCurrent.position.resize(4);
+		msgJointsCurrent.name.resize(6);
+		msgJointsCurrent.position.resize(6);
 		msgJointsCurrent.name[0] ="Joint0";
 		msgJointsCurrent.position[0] = 0.0;
 		msgJointsCurrent.name[1] ="Joint1";
@@ -220,6 +239,10 @@ namespace cpr_robots{
 		msgJointsCurrent.position[2] = 0.0;
 		msgJointsCurrent.name[3] ="Joint3";
 		msgJointsCurrent.position[3] = 0.0;
+		msgJointsCurrent.name[4] ="Joint4";
+		msgJointsCurrent.position[4] = 0.0;
+		msgJointsCurrent.name[5] ="Joint5";
+		msgJointsCurrent.position[5] = 0.0;
 
 		// Publish the current joint states
 		pubJoints = n.advertise<sensor_msgs::JointState>("/joint_states", 1);
@@ -242,7 +265,7 @@ namespace cpr_robots{
 	//****************************************************************
 	void cpr_mover::mainLoop()
 	{
-  		ROS_INFO("Starting Mover4 Main Loop");
+  		ROS_INFO("Starting Mover Main Loop");
   		
  	 	for(;;)
   		{
@@ -267,8 +290,9 @@ namespace cpr_robots{
 	// the commands are forwarded to the interface class
 	void cpr_mover::commandsCallback(const std_msgs::String::ConstPtr& msg){
 
-		ROS_INFO("CMD: %s ", msg->data.c_str()) ;
+		//ROS_INFO("CMD: %s ", msg->data.c_str()) ;
 		std::string rec = msg->data;
+
 
 		if( rec == "Connect"){
 			itf.Connect();
@@ -285,10 +309,24 @@ namespace cpr_robots{
 			itf.EnableMotors();
 			ROS_INFO("Enable");
 		}
-		else if( rec == "ChangeGripperState" ){
-//			changeGripperStatus();
-			ROS_INFO("ChangeGripperState");
+		else if( rec == "GripperOpen" ){
+			ROS_INFO("GripperOpen");
 		}
+		else if( rec == "GripperClose" ){
+			ROS_INFO("GripperClose");
+		}
+		else if( rec[0] == 'O' && rec[1] == 'v' && rec[2] == 'e'){
+			int l = rec.length();
+			std::string ovr = rec.substr(9, l-1);
+			int newovr = atoi(ovr.c_str());
+
+			if(newovr > 100) newovr = 100;
+			if(newovr < 0) newovr = 0;
+			ovrPercent = newovr;
+
+			ROS_INFO("New Override %d", newovr);
+		}
+
 
 	}
 
