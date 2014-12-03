@@ -38,6 +38,53 @@ ProtocolCPRCAN::~ProtocolCPRCAN() {
 }
 
 
+void ProtocolCPRCAN::Init(std::string robotType){
+
+	if(robotType == "mover4"){
+
+		nrOfJoints = 4;
+		jointIDs[0] = 16;
+		jointIDs[1] = 32;
+		jointIDs[2] = 48;
+		jointIDs[3] = 64;
+		ticsPerDegree[0] = -65.87;
+		ticsPerDegree[1] = -65.87;
+		ticsPerDegree[2] = 65.87;
+		ticsPerDegree[3] = -101.0;
+		for(int i=0; i<4; i++)
+			ticsZero[i] = 32000;
+
+		std::cout << "ProtocolCPRCAN configured for mover4" << std::endl;
+
+
+	}else if(robotType == "mover6"){
+
+		nrOfJoints = 6;
+		jointIDs[0] = 16;
+		jointIDs[1] = 32;
+		jointIDs[2] = 48;
+		jointIDs[3] = 64;
+		jointIDs[4] = 80;
+		jointIDs[5] = 96;
+
+		ticsPerDegree[0] = -65.87;
+		ticsPerDegree[1] = -65.87;
+		ticsPerDegree[2] = 65.87;
+		ticsPerDegree[3] = -69.71;
+		ticsPerDegree[4] = 3.2;
+		ticsPerDegree[5] = 3.2;
+
+		for(int i=0; i<4; i++)
+			ticsZero[i] = 32000;
+		ticsZero[4] = 512;				// these two values might need some adoptions if the joints are not algined correctly
+		ticsZero[5] = 512;
+
+		std::cout << "ProtocolCPRCAN configured for mover6" << std::endl;
+
+	}
+
+
+}
 
 //*******************************************
 bool ProtocolCPRCAN::Connect(){

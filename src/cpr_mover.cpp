@@ -194,16 +194,17 @@ namespace cpr_robots{
 	void cpr_mover::init(){
 		ROS_INFO("...initing...");
 
-
-
 		flag_stop_requested = false;
 
 		if(flagMover6){
 			nrOfJoints = 6;
+			kin.nrOfJoints = 6;
+			itf.Init("mover6");
 		}else{
 			nrOfJoints = 4;
+			kin.nrOfJoints = 4;
+			itf.Init("mover4");
 		}
-		kin.nrOfJoints = nrOfJoints;
 
 		setPointState.j[0] =   0.0;			// values are initialized with 6 field to be usable for Mover4 and Mover6
 		setPointState.j[1] = -20.0;
@@ -341,6 +342,7 @@ namespace cpr_robots{
 			if(tmp >  100.0) tmp =  100.0;
 			cmdVelocities[i] = tmp;
 		}
+
 	}
 
 
@@ -466,6 +468,8 @@ namespace cpr_robots{
 		msgJointsCurrent.position[1] = deg2rad * setPointState.j[1];
 		msgJointsCurrent.position[2] = deg2rad * setPointState.j[2];
 		msgJointsCurrent.position[3] = deg2rad * setPointState.j[3];
+		msgJointsCurrent.position[4] = deg2rad * setPointState.j[4];
+		msgJointsCurrent.position[5] = deg2rad * setPointState.j[5];
 		pubJoints.publish(msgJointsCurrent);								// ROS communication works in Radian
 
 

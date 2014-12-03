@@ -28,6 +28,7 @@ public:
 
 	CANInterfacePCAN itf;
 
+	void Init(std::string robotType);
 	bool Connect();
 	bool Disconnect();
 	bool GetConnectionStatus();
