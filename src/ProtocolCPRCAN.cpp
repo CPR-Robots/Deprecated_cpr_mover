@@ -261,3 +261,49 @@ void ProtocolCPRCAN::DisableMotors(){
 	cout << "Motors disabled" << endl;
 	flagDoComm = true;
 }
+
+//***************************************************************
+// Sets the digital Outputs
+// in the base there are 3 (standard 5V) or 4 (24V DIO-Extension) outputs: joint = 0, which = 0 to 4
+// in the TCP there are 2 outputs for the gripper: joint = 3, which = 0 and 1
+// Gripper: the standard gripper need output 3/0 activated to be enabled, then 3/1 defines open and close
+void ProtocolCPRCAN::SetIO(int joint, int which, bool state)
+{
+
+	int id = 16;
+	int l = 2;
+	unsigned char data[8] = {1, 10, 0, 0, 0, 0, 0};
+
+	if (!itf.flagConnected)
+	{
+		cout << "cannot set DOut before connecting." << endl;
+		return;
+	}
+
+	id = jointIDs[joint];
+	data[0] = 0x01;
+	if (which == 0)
+		data[1] = 0x20;
+	else if (which == 1)
+		data[1] = 0x21;
+	else if (which == 2)
+		data[1] = 0x22;
+	else if (which == 3)    // The third one is not always available
+		data[1] = 0x23;
+	else
+	{
+		cout << "ProtocolCPRCAN: Trying to set wrong IO" << endl;
+		return;
+	}
+
+	if (state) data[2] = 0x01;
+	else data[2] = 0x00;
+
+	l = 3;
+
+	flagDoComm = false;
+	wait3(1);
+	itf.WriteMessage(id, l, data);
+	flagDoComm = true;
+}
+

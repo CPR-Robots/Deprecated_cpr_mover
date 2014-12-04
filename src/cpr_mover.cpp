@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: December 2nd, 2014
+// Last change: December 4th, 2014
 
 /*
 	Functionality:
@@ -46,7 +46,6 @@
 	ToDo:
 	* Include the CPRRS232 USB-CAN-adapter
 	* improve structure and quality, debug
-	* actuate the gripper
 */
 
 
@@ -311,9 +310,13 @@ namespace cpr_robots{
 			ROS_INFO("Enable");
 		}
 		else if( rec == "GripperOpen" ){
+			itf.SetIO(3, 1, true);
+			itf.SetIO(3, 0, true);
 			ROS_INFO("GripperOpen");
 		}
 		else if( rec == "GripperClose" ){
+			itf.SetIO(3, 1, true);
+			itf.SetIO(3, 0, false);
 			ROS_INFO("GripperClose");
 		}
 		else if( rec[0] == 'O' && rec[1] == 'v' && rec[2] == 'e'){
