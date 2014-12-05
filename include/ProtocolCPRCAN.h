@@ -42,6 +42,8 @@ public:
 	void EnableMotors();
 	void DisableMotors();
 
+	void SetIO(int joint, int which, bool state);
+
 };
 
 #endif /* PROTOCOLCPRCAN_H_ */
