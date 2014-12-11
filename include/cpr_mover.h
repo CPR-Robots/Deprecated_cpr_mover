@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: Oct. 26th 2013
-// Last change: December 2nd, 2014
+// Last change: December 11th, 2014
 
 
 #ifndef cpr_mover_H
@@ -55,8 +55,8 @@
 
 #include <actionlib/server/simple_action_server.h>
 
-//#include <control_msgs/JointTrajectoryAction.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <control_msgs/GripperCommandAction.h>
 
 #include "kinematics.h"
 #include "ProtocolCPRCAN.h"

@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: December 4th, 2014
+// Last change: December 11th, 2014
 
 /*
 	Functionality:
@@ -41,6 +41,7 @@
 	* Connects to a Mover robot using the PCAN adapter
 	* Allows to move the joints with the cpr_rviz_plugin
 	* Accepts joint_trajectory_actions from e.g. moveit
+	* Accepts gripperCommandActions from e.g. moveit
 	* Publishes the current joint positions and the robot status
 
 	ToDo:
@@ -56,11 +57,12 @@
 
 using namespace std;
 
-//typedef actionlib::SimpleActionServer<control_msgs::JointTrajectoryAction> Server;
-typedef actionlib::SimpleActionServer<control_msgs::FollowJointTrajectoryAction> Server;
+typedef actionlib::SimpleActionServer<control_msgs::FollowJointTrajectoryAction> TrajectoryServer;
+typedef actionlib::SimpleActionServer<control_msgs::GripperCommandAction> GripperServer;
 
-double newJoints[] = {0.0, 0.0, 0.0, 0.0};	// in degree
-std::list<robotState> targetPointList;		// die Liste der abzufahrenden Punkte
+double newJoints[] = {0.0, 0.0, 0.0, 0.0};	// internal joint vlaues are in degree
+std::list<robotState> targetPointList;		// list of points to move to
+int gripperRequest = 0;						// Stores the GripperAction requests. 0: no request, 1: please open, 2: please close. The main loop resets this value to 0 when done.
 
 double deg2rad = 3.14159 / 180.0;
 double rad2deg = 180.0 / 3.14159;
@@ -68,7 +70,6 @@ double rad2deg = 180.0 / 3.14159;
 
 //**************************************************************
 // print the points in the target list
-// todo: lokal integrieren
 void printTargetPointList(){
 	ROS_INFO("Current targetPointList with %d points:", targetPointList.size());
 	list<robotState>::iterator it;
@@ -78,25 +79,21 @@ void printTargetPointList(){
 		ROS_INFO("P%d: %.2lf %.2lf %.2lf, Duration: %lf s" , i, (*it).j[0], (*it).j[1], (*it).j[2], (*it).duration );
 		it++;
 	}
-
 }
 
 
 //***************************************************************************
 // Processing and JointTrajectoryAction
-// todo: lokal integrieren
-//void execute(const control_msgs::JointTrajectoryGoalConstPtr& goal, Server* as)
-void execute(const control_msgs::FollowJointTrajectoryGoalConstPtr& goal, Server* as)
+void executeTrajectory(const control_msgs::FollowJointTrajectoryGoalConstPtr& goal, TrajectoryServer* as)
 {
-  	
   double pos = 3.0; 
   double rad2deg = 180.0 / 3.141;
   robotState rs;
   float lastDuration = 0.0;
 
-  int nrOfPoints = goal->trajectory.points.size();					// Anzahl der einzulesenden Punkte
+  int nrOfPoints = goal->trajectory.points.size();					// Number of points to add
   for(int i=0; i<nrOfPoints; i++){
-	  rs.j[0] = goal->trajectory.points[i].positions[0] * rad2deg;	// ros values come in rad, here we work in degree
+	  rs.j[0] = goal->trajectory.points[i].positions[0] * rad2deg;	// ros values come in rad, internally we work in degree
 	  rs.j[1] = goal->trajectory.points[i].positions[1] * rad2deg;
 	  rs.j[2] = goal->trajectory.points[i].positions[2] * rad2deg;
 	  rs.j[3] = goal->trajectory.points[i].positions[3] * rad2deg;
@@ -112,7 +109,25 @@ void execute(const control_msgs::FollowJointTrajectoryGoalConstPtr& goal, Server
   as->setSucceeded();
 }
 
+//***************************************************************************
+// React on Gripper Commands
+void executeGripper(const control_msgs::GripperCommandGoalConstPtr & goal, GripperServer* as)
+{
+	float gapSize = goal->command.position;
 
+	if(gapSize > 0.0){
+		gripperRequest = 1;
+		  ROS_INFO("GripperAction: open");
+	}
+	else{
+		gripperRequest = 2;
+		  ROS_INFO("GripperAction: close");
+	}
+	as->setSucceeded();
+}
+
+
+//****************************************************
 void quit(int sig)
 {
   ros::shutdown();
@@ -121,21 +136,19 @@ void quit(int sig)
 
 
 
+//******************** MAIN ************************************************
 int main(int argc, char** argv)
 {
-
 	ros::init(argc, argv, "cpr_mover4");
-
-
-	//Start the ActionServer for JointTrajectoryActions from MoveIT
 	ros::NodeHandle n2;
 
-
-	Server server(n2, "cpr_mover/follow_joint_trajectory", boost::bind(&execute, _1, &server), false);
-  	ROS_INFO("ActionServer: Starting");
-  	server.start();	
-
-
+	//Start the ActionServer for JointTrajectoryActions and GripperCommandActions from MoveIT
+	TrajectoryServer tserver(n2, "cpr_mover/follow_joint_trajectory", boost::bind(&executeTrajectory, _1, &tserver), false);
+  	ROS_INFO("TrajectoryActionServer: Starting");
+  	tserver.start();
+	GripperServer gserver(n2, "cpr_mover/gripper_command", boost::bind(&executeGripper, _1, &gserver), false);
+ 	ROS_INFO("GripperActionServer: Starting");
+ 	gserver.start();
 
 	// Start the robot
 	cpr_robots::cpr_mover robot;
@@ -149,8 +162,6 @@ int main(int argc, char** argv)
 
 
 namespace cpr_robots{
-
-
 	
 
 	//*************************************************************************************
@@ -176,11 +187,9 @@ namespace cpr_robots{
 				flagMover4 = true;
 				flagMover6 = false;
 			}
-
 		}else{
 			ROS_INFO("no robot name found");
 		}
-
 	}
 
 
@@ -255,10 +264,7 @@ namespace cpr_robots{
 		msgErrorStates.data = "error 0x04";
 		pubErrorStates = n.advertise<std_msgs::String>("/CPRMoverErrorCodes", 1);
 
-
 		subCommands = n.subscribe<std_msgs::String>("/CPRMoverCommands", 1, &cpr_mover::commandsCallback, this);
-			
-
 	}
 
 
@@ -269,7 +275,7 @@ namespace cpr_robots{
   		
  	 	for(;;)
   		{
-			MotionGeneration();			// Generate the joint motion
+			MotionGeneration();			// Generate the joint motion and actuate the gripper
 			CommunicationHW();			// Forward the new setpoints to the hardware
 			CommunicationROS();			// Publish the joint states and error info
 
@@ -292,7 +298,6 @@ namespace cpr_robots{
 
 		//ROS_INFO("CMD: %s ", msg->data.c_str()) ;
 		std::string rec = msg->data;
-
 
 		if( rec == "Connect"){
 			itf.Connect();
@@ -330,8 +335,6 @@ namespace cpr_robots{
 
 			ROS_INFO("New Override %d", newovr);
 		}
-
-
 	}
 
 	//*************************************************************************************
@@ -345,7 +348,6 @@ namespace cpr_robots{
 			if(tmp >  100.0) tmp =  100.0;
 			cmdVelocities[i] = tmp;
 		}
-
 	}
 
 
@@ -393,24 +395,28 @@ namespace cpr_robots{
 					targetPointList.pop_front();
 					flagPointReplayInited = false;
 					ROS_INFO("New Position from List (remaining: %d): %.2lf %.2lf %.2lf %.2lf",targetPointList.size(), targetState.j[0], targetState.j[1], targetState.j[2], targetState.j[3]);
-
 				}
 			}
-
 		}else{
 			for(int i=0; i<nrOfJoints; i++)
 				setPointState.j[i] += (cmdVelocities[i]/100.0) * (ovrPercent/100.0) * (jointMaxVelocity[i] * (cycleTime/1000.0));
 
 			for(int i=0; i<nrOfJoints; i++)
 				targetState.j[i] = setPointState.j[i];
-
 		}
-
-
 
 		kin.CheckJointMinMax(setPointState.j);		// check if the joints are above minmax values
 
-
+		// And then handle the gripper requests from the GripperServer
+		if(gripperRequest == 1){
+			itf.SetIO(3, 1, true);
+			itf.SetIO(3, 0, true);
+			gripperRequest = 0;
+		}else if(gripperRequest == 2){
+			itf.SetIO(3, 1, true);
+			itf.SetIO(3, 0, false);
+			gripperRequest = 0;
+		}
 		return;
 	}
 
@@ -441,8 +447,6 @@ namespace cpr_robots{
 		flagPointReplayInited = true;
 
 		ROS_INFO("Scale: %lf (%lf / %lf) -  %lf %lf %lf %lf", scale, maxDuration, tp.duration,  vel[0], vel[1], vel[2], vel[3]);
-
-
 	}
 
 
@@ -456,7 +460,6 @@ namespace cpr_robots{
 		for(int i=0; i<nrOfJoints; i++){
 			itf.SetJoints( setPointState.j );
 		}
-
 	}
 
 
@@ -475,11 +478,9 @@ namespace cpr_robots{
 		msgJointsCurrent.position[5] = deg2rad * setPointState.j[5];
 		pubJoints.publish(msgJointsCurrent);								// ROS communication works in Radian
 
-
 		msgErrorStates.data = itf.GetErrorMsg();
 
 		pubErrorStates.publish(msgErrorStates);
-
 
 		pCnt++;				// nur in jedem 10. Schritt eine Ausgabe drucken
 		if(pCnt > 20){
@@ -487,9 +488,6 @@ namespace cpr_robots{
 			pCnt = 0;
 		}
 	}
-
-
-
 
 
 
