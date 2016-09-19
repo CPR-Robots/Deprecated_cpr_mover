@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, Commonplace Robotics GmbH
+ *  Copyright (c) 2016, Commonplace Robotics GmbH
  *  http://www.commonplacerobotics.com
  *  All rights reserved.
  *
@@ -33,13 +33,14 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: December 11th, 2014
+// Last change: September 19th, 2016
 
 /*
 	Functionality:
 	* Establishes a main loop to control the robot arm Mover4 or Mover6
 	* Connects to a Mover robot using the PCAN adapter
 	* Allows to move the joints with the cpr_rviz_plugin
+	* Forwards joints and gripper joints in a joint_states message
 	* Accepts joint_trajectory_actions from e.g. moveit
 	* Accepts gripperCommandActions from e.g. moveit
 	* Publishes the current joint positions and the robot status
@@ -63,6 +64,8 @@ typedef actionlib::SimpleActionServer<control_msgs::GripperCommandAction> Grippe
 double newJoints[] = {0.0, 0.0, 0.0, 0.0};	// internal joint vlaues are in degree
 std::list<robotState> targetPointList;		// list of points to move to
 int gripperRequest = 0;						// Stores the GripperAction requests. 0: no request, 1: please open, 2: please close. The main loop resets this value to 0 when done.
+double gripperJointStatus = 0.0;			// State of the gripper joints. This is a workaround, the real joints are commanded via digital io
+double gripperJointMax = 35.0 * 3.14159 / 180.0;	// Opening width
 
 double deg2rad = 3.14159 / 180.0;
 double rad2deg = 180.0 / 3.14159;
@@ -238,8 +241,8 @@ namespace cpr_robots{
 
 
 		msgJointsCurrent.header.stamp = ros::Time::now();
-		msgJointsCurrent.name.resize(6);
-		msgJointsCurrent.position.resize(6);
+		msgJointsCurrent.name.resize(8);
+		msgJointsCurrent.position.resize(8);
 		msgJointsCurrent.name[0] ="Joint0";
 		msgJointsCurrent.position[0] = 0.0;
 		msgJointsCurrent.name[1] ="Joint1";
@@ -252,6 +255,10 @@ namespace cpr_robots{
 		msgJointsCurrent.position[4] = 0.0;
 		msgJointsCurrent.name[5] ="Joint5";
 		msgJointsCurrent.position[5] = 0.0;
+		msgJointsCurrent.name[6] ="Gripper1";		// Joints 7 and 8 are gripper joints
+		msgJointsCurrent.position[6] = 0.0;
+		msgJointsCurrent.name[7] ="Gripper2";
+		msgJointsCurrent.position[7] = 0.0;
 
 		// Publish the current joint states
 		pubJoints = n.advertise<sensor_msgs::JointState>("/joint_states", 1);
@@ -317,11 +324,13 @@ namespace cpr_robots{
 		else if( rec == "GripperOpen" ){
 			itf.SetIO(3, 1, true);
 			itf.SetIO(3, 0, true);
+			gripperJointStatus = gripperJointMax;		// Workaround: the gripper should be in this position now, even if it is commanded by digital IO. This value is send to RViz
 			ROS_INFO("GripperOpen");
 		}
 		else if( rec == "GripperClose" ){
 			itf.SetIO(3, 1, true);
 			itf.SetIO(3, 0, false);
+			gripperJointStatus = 0.0;
 			ROS_INFO("GripperClose");
 		}
 		else if( rec[0] == 'O' && rec[1] == 'v' && rec[2] == 'e'){
@@ -412,10 +421,12 @@ namespace cpr_robots{
 			itf.SetIO(3, 1, true);
 			itf.SetIO(3, 0, true);
 			gripperRequest = 0;
+			gripperJointStatus = gripperJointMax;		// Workaround: the gripper should be in this position now, even if it is commanded by digital IO. This value is send to RViz
 		}else if(gripperRequest == 2){
 			itf.SetIO(3, 1, true);
 			itf.SetIO(3, 0, false);
 			gripperRequest = 0;
+			gripperJointStatus = 0.0;
 		}
 		return;
 	}
@@ -476,6 +487,10 @@ namespace cpr_robots{
 		msgJointsCurrent.position[3] = deg2rad * setPointState.j[3];
 		msgJointsCurrent.position[4] = deg2rad * setPointState.j[4];
 		msgJointsCurrent.position[5] = deg2rad * setPointState.j[5];
+
+		msgJointsCurrent.position[6] = gripperJointStatus;					// The two gripper joints. Workaround, in the Mover robots these are digital IO controlled
+		msgJointsCurrent.position[7] = gripperJointStatus;
+
 		pubJoints.publish(msgJointsCurrent);								// ROS communication works in Radian
 
 		msgErrorStates.data = itf.GetErrorMsg();

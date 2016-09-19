@@ -9,7 +9,7 @@ Functionalities:
 This ROS package allows to include the Commonplace Robotics Mover4 and Mover6 robots into an ROS environment. The main functionalities are:
 * Establishing a robot control loop
 * Connecting to the hardware robot arm using the USB-CAN adapter
-* Publishing the joint states
+* Publishing the joint states (6 joints + 2 gripper joints)
 * Receiving joint velocites and commands like connect, enable, ...
 * Receiving joint_trajectory_actions e.g. from MoveIt
 
