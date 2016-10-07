@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: September 19th, 2016
+// Last change: October 7th, 2016:	JointMinMax are set differently for M4 and M6, increased velocity
 
 /*
 	Functionality:
@@ -142,7 +142,7 @@ void quit(int sig)
 //******************** MAIN ************************************************
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "cpr_mover4");
+	ros::init(argc, argv, "cpr_mover_robot");
 	ros::NodeHandle n2;
 
 	//Start the ActionServer for JointTrajectoryActions and GripperCommandActions from MoveIT
@@ -170,6 +170,7 @@ namespace cpr_robots{
 	//*************************************************************************************
 	cpr_mover::cpr_mover(){
 
+		ROS_INFO("CPR-Mover Mainloop V01.4 Oct. 7th, 2016");
 		flagMover4 = true;      // default choice
 		flagMover6 = false;
 
@@ -210,10 +211,12 @@ namespace cpr_robots{
 		if(flagMover6){
 			nrOfJoints = 6;
 			kin.nrOfJoints = 6;
+			kin.SetJointMinMax(1);
 			itf.Init("mover6");
 		}else{
 			nrOfJoints = 4;
 			kin.nrOfJoints = 4;
+			kin.SetJointMinMax(0);
 			itf.Init("mover4");
 		}
 
@@ -224,12 +227,12 @@ namespace cpr_robots{
 		setPointState.j[4] =  30.0;
 		setPointState.j[5] =   0.0;
 
-		jointMaxVelocity[0] = 20.0;
-		jointMaxVelocity[1] = 20.0;
-		jointMaxVelocity[2] = 20.0;
-		jointMaxVelocity[3] = 20.0;
-		jointMaxVelocity[4] = 20.0;
-		jointMaxVelocity[5] = 20.0;
+		jointMaxVelocity[0] = 40.0;
+		jointMaxVelocity[1] = 40.0;
+		jointMaxVelocity[2] = 40.0;
+		jointMaxVelocity[3] = 40.0;
+		jointMaxVelocity[4] = 40.0;
+		jointMaxVelocity[5] = 40.0;
 
 
 		// when starting up (or when reading the HW joint values) the target position has to be aligned with the setPoint position
