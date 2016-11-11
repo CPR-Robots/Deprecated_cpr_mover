@@ -33,7 +33,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 // Created on: 	October 26th, 2014
-// Last change: October 7th, 2016:	JointMinMax are set differently for M4 and M6, increased velocity
+// V01.4 October 7th, 2016:	JointMinMax are set differently for M4 and M6, increased velocity
+// V01.5 Nov 11th, 2016:	Different definition of Joint topic wih 6+2 resp. 4+2 values
 
 /*
 	Functionality:
@@ -74,7 +75,7 @@ double rad2deg = 180.0 / 3.14159;
 //**************************************************************
 // print the points in the target list
 void printTargetPointList(){
-	ROS_INFO("Current targetPointList with %d points:", targetPointList.size());
+	ROS_INFO("Current targetPointList with %d points:", (int)(targetPointList.size()));
 	list<robotState>::iterator it;
 	it=targetPointList.begin();
 	int size = targetPointList.size();
@@ -170,7 +171,7 @@ namespace cpr_robots{
 	//*************************************************************************************
 	cpr_mover::cpr_mover(){
 
-		ROS_INFO("CPR-Mover Mainloop V01.4 Oct. 7th, 2016");
+		ROS_INFO("CPR-Mover Mainloop V01.5 Nov. 11th, 2016");
 		flagMover4 = true;      // default choice
 		flagMover6 = false;
 
@@ -179,7 +180,7 @@ namespace cpr_robots{
 		//<param name="robot_type" value="mover4"/>
 		std::string global_name, relative_name, default_param;
 		if (n.getParam("/robot_type", global_name)){
-			ROS_INFO(global_name.c_str());
+			ROS_INFO("%s", global_name.c_str());
 
 			if(global_name == "mover4"){
 				flagMover4 = true;
@@ -213,11 +214,47 @@ namespace cpr_robots{
 			kin.nrOfJoints = 6;
 			kin.SetJointMinMax(1);
 			itf.Init("mover6");
+
+			msgJointsCurrent.header.stamp = ros::Time::now();
+			msgJointsCurrent.name.resize(8);
+			msgJointsCurrent.position.resize(8);
+			msgJointsCurrent.name[0] ="Joint0";
+			msgJointsCurrent.position[0] = 0.0;
+			msgJointsCurrent.name[1] ="Joint1";
+			msgJointsCurrent.position[1] = 0.0;
+			msgJointsCurrent.name[2] ="Joint2";
+			msgJointsCurrent.position[2] = 0.0;
+			msgJointsCurrent.name[3] ="Joint3";
+			msgJointsCurrent.position[3] = 0.0;
+			msgJointsCurrent.name[4] ="Joint4";
+			msgJointsCurrent.position[4] = 0.0;
+			msgJointsCurrent.name[5] ="Joint5";
+			msgJointsCurrent.position[5] = 0.0;
+			msgJointsCurrent.name[6] ="Gripper1";		// Joints 7 and 8 are gripper joints
+			msgJointsCurrent.position[6] = 0.0;
+			msgJointsCurrent.name[7] ="Gripper2";
+			msgJointsCurrent.position[7] = 0.0;
 		}else{
 			nrOfJoints = 4;
 			kin.nrOfJoints = 4;
 			kin.SetJointMinMax(0);
 			itf.Init("mover4");
+
+			msgJointsCurrent.header.stamp = ros::Time::now();
+			msgJointsCurrent.name.resize(6);
+			msgJointsCurrent.position.resize(6);
+			msgJointsCurrent.name[0] ="Joint0";
+			msgJointsCurrent.position[0] = 0.0;
+			msgJointsCurrent.name[1] ="Joint1";
+			msgJointsCurrent.position[1] = 0.0;
+			msgJointsCurrent.name[2] ="Joint2";
+			msgJointsCurrent.position[2] = 0.0;
+			msgJointsCurrent.name[3] ="Joint3";
+			msgJointsCurrent.position[3] = 0.0;
+			msgJointsCurrent.name[4] ="Gripper1";		// Joints 5 and 6 are gripper joints
+			msgJointsCurrent.position[4] = 0.0;
+			msgJointsCurrent.name[5] ="Gripper2";
+			msgJointsCurrent.position[5] = 0.0;
 		}
 
 		setPointState.j[0] =   0.0;			// values are initialized with 6 field to be usable for Mover4 and Mover6
@@ -241,27 +278,7 @@ namespace cpr_robots{
 
 		ovrPercent = 50.0;
 		cycleTime = 50.0;
-
-
-		msgJointsCurrent.header.stamp = ros::Time::now();
-		msgJointsCurrent.name.resize(8);
-		msgJointsCurrent.position.resize(8);
-		msgJointsCurrent.name[0] ="Joint0";
-		msgJointsCurrent.position[0] = 0.0;
-		msgJointsCurrent.name[1] ="Joint1";
-		msgJointsCurrent.position[1] = 0.0;
-		msgJointsCurrent.name[2] ="Joint2";
-		msgJointsCurrent.position[2] = 0.0;
-		msgJointsCurrent.name[3] ="Joint3";
-		msgJointsCurrent.position[3] = 0.0;
-		msgJointsCurrent.name[4] ="Joint4";
-		msgJointsCurrent.position[4] = 0.0;
-		msgJointsCurrent.name[5] ="Joint5";
-		msgJointsCurrent.position[5] = 0.0;
-		msgJointsCurrent.name[6] ="Gripper1";		// Joints 7 and 8 are gripper joints
-		msgJointsCurrent.position[6] = 0.0;
-		msgJointsCurrent.name[7] ="Gripper2";
-		msgJointsCurrent.position[7] = 0.0;
+		
 
 		// Publish the current joint states
 		pubJoints = n.advertise<sensor_msgs::JointState>("/joint_states", 1);
@@ -406,7 +423,7 @@ namespace cpr_robots{
 					targetState = targetPointList.front();
 					targetPointList.pop_front();
 					flagPointReplayInited = false;
-					ROS_INFO("New Position from List (remaining: %d): %.2lf %.2lf %.2lf %.2lf",targetPointList.size(), targetState.j[0], targetState.j[1], targetState.j[2], targetState.j[3]);
+					ROS_INFO("New Position from List (remaining: %d): %.2lf %.2lf %.2lf %.2lf",(int)(targetPointList.size()), targetState.j[0], targetState.j[1], targetState.j[2], targetState.j[3]);
 				}
 			}
 		}else{
@@ -488,12 +505,15 @@ namespace cpr_robots{
 		msgJointsCurrent.position[1] = deg2rad * setPointState.j[1];
 		msgJointsCurrent.position[2] = deg2rad * setPointState.j[2];
 		msgJointsCurrent.position[3] = deg2rad * setPointState.j[3];
-		msgJointsCurrent.position[4] = deg2rad * setPointState.j[4];
-		msgJointsCurrent.position[5] = deg2rad * setPointState.j[5];
-
-		msgJointsCurrent.position[6] = gripperJointStatus;					// The two gripper joints. Workaround, in the Mover robots these are digital IO controlled
-		msgJointsCurrent.position[7] = gripperJointStatus;
-
+		if(flagMover4){
+			msgJointsCurrent.position[4] = gripperJointStatus;					// The two gripper joints. Workaround, in the Mover robots these are digital IO controlled
+			msgJointsCurrent.position[5] = gripperJointStatus;
+		}else{	//Mover6, two more joints
+			msgJointsCurrent.position[4] = deg2rad * setPointState.j[4];
+			msgJointsCurrent.position[5] = deg2rad * setPointState.j[5];
+			msgJointsCurrent.position[6] = gripperJointStatus;					
+			msgJointsCurrent.position[7] = gripperJointStatus;
+		}
 		pubJoints.publish(msgJointsCurrent);								// ROS communication works in Radian
 
 		msgErrorStates.data = itf.GetErrorMsg();

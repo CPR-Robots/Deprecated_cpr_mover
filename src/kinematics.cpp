@@ -32,7 +32,7 @@ void kinematics::SetJointMinMax(int robot){
 		jointMinMax[1][0] = -30.0;		jointMinMax[1][1] =  60.0;
 		jointMinMax[2][0] = -40.0;		jointMinMax[2][1] = 140.0;
 		jointMinMax[3][0] = -130.0;		jointMinMax[3][1] = 130.0;
-		jointMinMax[4][0] = -95.0;		jointMinMax[4][1] = 95.0;
+		jointMinMax[4][0] = -90.0;		jointMinMax[4][1] = 90.0;
 		jointMinMax[5][0] = -130.0;		jointMinMax[5][1] = 130.0;
 
 	}else if(robot == 1){		// Mover6
